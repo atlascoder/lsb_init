@@ -17,7 +17,7 @@ The gem provides a command-line utility `lsb_init_ruby`.
 
 The command `lsb_init_ruby` should be called from any location within ruby project's tree in  form:
 
-`lsb_init_ruby g|e [servicename]`
+`lsb_init_ruby g|d [servicename]`
 
 `g` - generate LSB Init scripts
 `d` - delete LSB Init scripts
@@ -44,7 +44,7 @@ ___
 #### Important note!
 **the generated script will run service from user name used while generation!**
 
-_**Don't call generation comannd as user if you dont wan't to run service as root!**_
+_**Don't call generation command as root if you don't want to run service as root!**_
 
 #### Examples
 
@@ -79,18 +79,20 @@ Certified products may be found at [wiki][3], and particularly the are:
 * Mandriva
 * ...
 
+Please check if your system is LSB compliant before.
+
 #### Running under root or sudo
 
-As far as the gem creates system-level scripts - it requires for root access.
+As far as the tool creates system-level scripts - it requires for root access.
 
 #### Customer's project should have **Gemfile** (should use the `bundler` gem) 
 
 The lsb_init gem provides CLI utility `lsb_init_ruby` which is looking for the Gemfile to define the root-path of project.
 
-The `lsb_init_ruby` performs search of Gemfile from the directory it was called and up by directory tree till `/`.
+The `lsb_init_ruby` performs search of Gemfile from the directory it was called and looks up by directory tree till found or got `/`.
 It means that `lsb_init_ruby` will work properly even being ran from project's subdirectory.
 
-But be sure that you are in proper directory before running `lsb_init_ruby`, because **it generates LSB Init scripts for 
+Be sure that the current path is proper before running `lsb_init_ruby`, because **it generates LSB Init scripts for 
 the the project's root when first facing of a Gemfile on its search going to the `/` path**.
 
 ###
