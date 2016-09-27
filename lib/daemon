@@ -1,0 +1,56 @@
+#!/usr/bin/env ruby
+
+require_relative './main'
+
+class Daemon
+
+  include LsbInit::Main
+
+  def initialize
+
+    @path = "#{File.expand_path('..', __FILE__)}"
+    @pidfile_path = "#{@path}/pidfile"
+
+  	Process.daemon true
+
+  	write_pid
+    at_exit{remove_pid}
+  	
+  	Signal.trap('TERM'){ do_finish }
+
+    Signal.trap('USR1'){ do_reload }
+
+  	do_main
+
+  rescue => e
+    puts e.message
+  	exit e.errno
+  end
+  
+  def write_pid
+    if File.exists?(@pidfile_path)
+      File.open(@pidfile_path, 'a'){|pidfile| pidfile << " #{Process.pid}" }
+    else
+      File.open(@pidfile_path, 'w'){|pidfile| pidfile.write(Process.pid.to_s) }
+    end
+  end
+  
+  def remove_pid
+    if File.exists?(@pidfile_path)
+      pids = []
+      File.open(@pidfile_path, 'r+'){ |f|
+        f.flock File::LOCK_EX
+        pids = f.read.split(' ')
+        pids.delete(Process.pid.to_s)
+        f.rewind
+        f.write(pids.join(' '))
+        f.flush
+        f.truncate f.pos
+      }
+      File.delete(@pidfile_path) if pids.length==0
+    end
+  end
+
+end
+
+Daemon.new
