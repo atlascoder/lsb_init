@@ -1,5 +1,4 @@
 require 'fileutils'
-require 'yaml'
 
 module LsbInit
 
@@ -9,8 +8,8 @@ USAGE:
     lsb_init_ruby command service_name
 
   commands:
-    e - generate rc script (with disabling and removing of existing one), for project and places it into lsb_init folder.
-    r - disable and remove script
+    g - generate rc script (with disabling of existing one), for project and places it into lsb_init folder.
+    d - disable script
 	END
 
   class ProjectIsNotUnderBundler < Exception
@@ -30,7 +29,7 @@ USAGE:
   class InappropriateServiceName < Exception
 
     def message
-      "Cannot generate service with name <#{@service_name}>"
+      'Cannot generate service with give name.'
     end
 
     def note
@@ -55,6 +54,7 @@ USAGE:
   class Configurator
 
     def initialize(args)
+      @service_name = nil
       # defining @project_root, @service_name
       raise BadArgumentPassed.new if args.length < 1
       find_project
@@ -80,45 +80,67 @@ USAGE:
     end
 
     def cleanup
-      if Dir.exists?(@lsb_init_dir) && Dir.exists?((_="#{@lsb_init_dir}/runner")) && Dir.entries(_).length==1
+      if Dir.exists?(@lsb_init_dir) && Dir.exists?("#{@lsb_init_dir}/runner")
           puts 'Removing old runner script'
-          runner_name = Dir.entries(_).first
-          `sudo rm /etc/init.d/#{runner_name}`
-          `sudo update-rc.d #{runner_name} remove`
+          runner_dir = Dir.entries("#{@lsb_init_dir}/runner")
+          runner_dir.delete '.'
+          runner_dir.delete '..'
+          runner_name = runner_dir.first
+          if runner_name && runner_name.length>0
+            puts "Found runner name #{runner_name}"
+            `sudo rm /etc/init.d/#{runner_name}`
+            `sudo update-rc.d #{runner_name} remove`
+            `rm -rf #{@lsb_init_dir}/runner`
+          else
+            puts 'Runner name was not found. Try to generate firstly.'
+          end
       end
 
-      puts "Removing project's lsb_init_ruby directory"
-      `rm -rf #{@lsb_init_dir}` if Dir.exists?(@lsb_init_dir)
+      puts "To complete removing - delete '#{@lsb_init_dir}' manually"
     end
 
     def generate
       gem_dir = File.expand_path('../..', File.expand_path(__FILE__))
       puts "Preparing project's lsb_init folder"
 
-      [@lsb_init_dir].each{|d| Dir.mkdir d}
-
       puts 'Generating scripts'
-      Dir.mkdir "#{@lsb_init_dir}/runner" unless Dir.exists?("#{@lsb_init_dir}/runner")
+      Dir.mkdir(@lsb_init_dir) unless Dir.exists?(@lsb_init_dir)
+      Dir.mkdir("#{@lsb_init_dir}/runner") unless Dir.exists?("#{@lsb_init_dir}/runner")
       rc_filename = "#{@lsb_init_dir}/runner/#{@service_name}"
-      rc_file = File.new rc_filename, 'w'
+      File.open(rc_filename, 'w'){ |f| f.write script_text}
 
-      rc_script = script_text
+      `cp #{gem_dir}/lsb_init/main.rb #{@lsb_init_dir}/main.rb` unless File.exists?("#{@lsb_init_dir}/main.rb")
 
-      rc_file.write rc_script
-      rc_file.close
+      runner = '#!/usr/bin/env ruby'
 
-      `cp #{gem_dir}/lsb_init/main.rb #{@lsb_init_dir}/main.rb`
-      `cp #{gem_dir}/daemon #{@lsb_init_dir}/daemon`
+      begin
+        rvm_current = `rvm current`.strip
+        puts "RVM current found: #{rvm_current}"
+        unless rvm_current.nil? || rvm_current.length==0
+          puts "Creating alias #{@service_name}"
+          `rvm alias create #{@service_name} #{rvm_current}`
+          runner = '#!' + `echo $HOME`.strip + "/.rvm/wrappers/#{@service_name}/ruby"
+        end
+      rescue
+        puts 'RVM not used.'
+      end
 
-      `chmod 755 #{rc_filename}`
-      `sudo chown root:root #{rc_filename}`
+      puts "Runner is set to: #{runner}"
+
+      File.open("#{@lsb_init_dir}/daemon", 'w') do |o|
+        o.puts runner
+        File.open("#{gem_dir}/daemon", 'r') {|i| o.write(i.read)}
+      end
+      `chmod 755 #{@lsb_init_dir}/daemon`
       `sudo cp #{rc_filename} /etc/init.d/#{@service_name}`
+      `sudo chmod 755 /etc/init.d/#{@service_name}`
+      `sudo chown root:root /etc/init.d/#{@service_name}`
       `sudo update-rc.d #{@service_name} defaults`
     end
     
     def find_project
       dir = Dir.pwd
-      while !File.exists?("#{dir}/Gemfile") do
+      until File.exists?("#{dir}/Gemfile") do
         dir = File.expand_path '..', dir
         raise ProjectIsNotUnderBundler.new if dir.eql? '/'
       end
@@ -237,6 +259,7 @@ case $1 in
   ;;
 esac
 END
+      text
     end
 
   end

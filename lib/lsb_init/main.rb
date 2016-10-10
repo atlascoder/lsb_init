@@ -1,5 +1,3 @@
-require 'yaml'
-
 module LsbInit
 
   module Main

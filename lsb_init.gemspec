@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name        = 'lsb_init'
-  s.version     = '0.0.3'
+  s.version     = '0.0.5'
   s.executables << 'lsb_init_ruby'
   s.date        = '2016-09-22'
   s.summary     = 'lsb-init is a tool for generating LSB Init scripts for Ruby projects deploying in Debian systems'
